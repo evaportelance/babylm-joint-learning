@@ -1,0 +1,5 @@
+
+pip install transformers
+pip install datasets
+pip install benepar 
+pip install protobuf==3.20.1
