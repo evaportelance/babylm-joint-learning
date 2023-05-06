@@ -18,7 +18,7 @@ class ResLayer(torch.nn.Module):
         return self.linear(x) + x
 
 class CompoundCFG(torch.nn.Module):
-    def __init__(self, V, NT, T, 
+    def __init__(self, pretrained_embed, V, NT, T, 
                  h_dim = 512,
                  w_dim = 512,
                  z_dim = 64,
@@ -45,7 +45,8 @@ class CompoundCFG(torch.nn.Module):
                                       ResLayer(s_dim, s_dim),
                                       nn.Linear(s_dim, V))
         if z_dim > 0:
-            self.enc_emb = nn.Embedding(V, w_dim)
+            # self.enc_emb = nn.Embedding(V, w_dim)
+            self.enc_emb = pretrained_embed
             self.enc_rnn = nn.LSTM(w_dim, h_dim, 
                 bidirectional=True, num_layers=1, batch_first=True)
             self.enc_out = nn.Linear(h_dim * 2, z_dim * 2)
@@ -190,7 +191,7 @@ class TextEncoder(torch.nn.Module):
     def _forward_srnn(self, x_emb, lengths, spans=None):
         """ lstm over every span, a.k.a. segmental rnn 
         """
-        b, N, dim = x_emb.size()
+        b, N, dim = x_emb.size() # N longest sent len
         assert N == lengths.max()
         word_mask = torch.arange(
             0, N, device=x_emb.device

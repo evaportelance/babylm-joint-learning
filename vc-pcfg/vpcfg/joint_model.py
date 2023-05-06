@@ -1,13 +1,30 @@
-import time
-import numpy as np
+# The joint model can be decomposed of two parts 
+# Grammar induction model + LM sharing one embedding layer
 
 import torch
+import datasets
+import time
+import numpy as np
+import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch_struct import SentCFG
-
 from . import utils
 from .module import CompoundCFG
+
+data = '/Users/xdchen/OneDrive - McGill University/babylm-joint-learning/preprocessed-data/abstractscenes/all_caps.json'
+
+# def construct_dataset(dpath, tokenizer):
+#     # read in data as list
+#     with open(dpath) as f:
+#         lines = f.readlines()
+#     lines = [l.strip() for l in lines]
+#     # convert to dict
+#     dataset = {'text': lines, 
+#                'tokens': [tokenizer.encode(l).ids for l in lines]}
+# # important
+# custom_train_data = datasets.Dataset.from_dict(custom_train_data)
+
 
 class VGCPCFGs(object):
     NS_PARSER = 'parser'
@@ -135,3 +152,19 @@ class VGCPCFGs(object):
             gold_t = utils.get_tree(gold_action, sent_s)
             info += "\nPred T: {}\nGold T: {}".format(pred_t, gold_t)
         return info
+
+
+
+# class JointModel(nn.Module):
+#     def __init__(self, V, opt, vocab, logger, w_dim=512):
+#         super().__init__()
+#         self.emb = nn.Embedding(V, w_dim)
+#         self.lm = LanguageModel(V, w_dim, num_layers=2, pretrained_embed=self.emb, dropout=0.1)
+#         self.gm = VGCPCFGs(opt, vocab, logger, pretrained_embed=self.emb)
+
+#     def forward(self, sent):
+#         sent_embed = self.emb(sent)
+#         lm_logits = self.lm(sent_embed)
+#         return lm_logits,
+
+
