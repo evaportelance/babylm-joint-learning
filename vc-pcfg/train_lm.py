@@ -105,12 +105,25 @@ def train(model, train_dataloader, val_dataloader, logger):
             if i % opt.log_step == 0:
                 batch_accuracy = correct / num_targets
                 epoch_accuracy = total_correct/total_targets
-                logger.info("train epoch {}/{}, batch {}/{}, batch loss {}, batch accuracy {}, epoch accuracy {}".format(
+                val_accuracy = get_val_accuracy(model, val_dataloader, device, opt)
+                logger.info("train epoch {}/{}, batch {}/{}, batch loss {}, batch accuracy {}, epoch accuracy {}, val accuracy {}".format(
                     epoch, opt.num_epochs,
                     i,
                     num_training_steps,
                     loss, batch_accuracy,
-                    epoch_accuracy))
+                    epoch_accuracy,
+                    val_accuracy))
+                if val_accuracy > prev_val_accuracy:
+                    prev_val_accuracy = val_accuracy
+                    filename = os.path.join(opt.save_model_path, "lm_model_best.pth.tar")
+                    state = {'epoch': epoch,
+                        'batch': i,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'val_accuracy': val_accuracy,
+                        'train_accuracy': epoch_accuracy,
+                        'opt': opt}
+                    torch.save(state, filename)
         epoch_accuracy = total_correct/total_targets
         average_loss = total_loss/num_training_steps
         val_accuracy = get_val_accuracy(model, val_dataloader, device, opt)
@@ -120,8 +133,9 @@ def train(model, train_dataloader, val_dataloader, logger):
                     epoch_accuracy,
                     val_accuracy))
         checkpoint_name = str(epoch) + "_lm_checkpoint.pth.tar"
-        filename = os.path.join(opt.save_model_path, name)
+        filename = os.path.join(opt.save_model_path, checkpoint_name)
         state = {'epoch': epoch,
+            'batch': -1,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'val_accuracy': val_accuracy,
@@ -132,6 +146,7 @@ def train(model, train_dataloader, val_dataloader, logger):
             prev_val_accuracy = val_accuracy
             filename = os.path.join(opt.save_model_path, "lm_model_best.pth.tar")
             state = {'epoch': epoch,
+                'batch':-1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_accuracy': val_accuracy,
@@ -248,7 +263,7 @@ if __name__ == '__main__':
     parser_params = checkpoint['model'][VGCPCFGs.NS_PARSER]
     model.parser.load_state_dict(parser_params)
     pretrained_embed = model.parser.enc_emb
-    lm.model.decoder.embed_tokens = pretrained_embed
+    #lm.model.decoder.embed_tokens = pretrained_embed
     
     # Load data and create data loaders
     train_loader, val_loader = load_datasets(opt, tokenizer)
