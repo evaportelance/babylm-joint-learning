@@ -5,7 +5,7 @@ import torch
 from . import utils
 from .evaluation import AverageMeter, LogCollector 
 
-def encode_data(model, data_loader, log_step=10, logging=print, vocab=None):
+def encode_data(model, data_loader, log_step=10, logging=print):
     """Encode all images and captions loadable by `data_loader`
     """
     batch_time = AverageMeter()
@@ -187,10 +187,10 @@ def t2i(images, captions, npts=None, measure='cosine', return_ranks=False):
     else:
         return (r1, r5, r10, medr, meanr)
 
-def validate(opt, val_loader, model, vocab, logger):
+def validate(opt, val_loader, model, logger):
     # compute the encoding for all the validation images and captions
     img_embs, cap_embs, val_ppl, val_f1 = encode_data(
-        model, val_loader, opt.log_step, logger.info, vocab)
+        model, val_loader, opt.log_step, logger.info)
     # caption retrieval
     (r1, r5, r10, medr, meanr) = i2t(img_embs, cap_embs, measure='cosine')
     logger.info("Image to text: %.1f, %.1f, %.1f, %.1f, %.1f" %

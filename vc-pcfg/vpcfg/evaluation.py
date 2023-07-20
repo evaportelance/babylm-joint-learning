@@ -54,10 +54,10 @@ class LogCollector(object):
             s += k + ' ' + str(v)
         return s
 
-def validate_parser(opt, data_loader, model, vocab, logger, visual_mode):
+def validate_parser(opt, data_loader, model, logger, visual_mode):
     if visual_mode:
         import eval_vis
-        return eval_vis.validate(opt, data_loader, model, vocab, logger)
+        return eval_vis.validate(opt, data_loader, model, logger)
     batch_time = AverageMeter()
     val_logger = LogCollector()
 

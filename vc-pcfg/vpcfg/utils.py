@@ -94,33 +94,33 @@ def l2norm(x, dim=-1):
 
 def all_binary_trees(n):
   #get all binary trees of length n
-  def is_tree(tree, n):
-    # shift = 0, reduce = 1
-    if sum(tree) != n-1:
-      return False
-    stack = 0    
-    for a in tree:
-      if a == 0:
-        stack += 1
-      else:
-        if stack < 2:
-          return False
-        stack -= 1
-      if stack < 0:
-        return False
-    return True
-  valid_tree = []
-  num_shift = 0
-  num_reduce = 0
-  num_actions = 2*n - 1
-  trees = map(list, itertools.product([0,1], repeat = num_actions-3))
-  start = [0, 0] #first two actions are always shift
-  end = [1] # last action is always reduce
-  for tree in trees: 
-    tree = start + tree + end
-    if is_tree(tree, n):
-      valid_tree.append(tree[::])
-  return valid_tree
+    def is_tree(tree, n):
+      # shift = 0, reduce = 1
+        if sum(tree) != n-1:
+            return False
+        stack = 0    
+        for a in tree:
+            if a == 0:
+                stack += 1
+            else:
+                if stack < 2:
+                    return False
+                stack -= 1
+            if stack < 0:
+                return False
+        return True
+    valid_tree = []
+    num_shift = 0
+    num_reduce = 0
+    num_actions = 2*n - 1
+    trees = map(list, itertools.product([0,1], repeat = num_actions-3))
+    start = [0, 0] #first two actions are always shift
+    end = [1] # last action is always reduce
+    for tree in trees: 
+        tree = start + tree + end
+        if is_tree(tree, n):
+            valid_tree.append(tree[::])
+    return valid_tree
 
 def get_actions(tree, SHIFT = 0, REDUCE = 1, OPEN='(', CLOSE=')'):
   #input tree in bracket form: ((A B) (C D))
@@ -150,22 +150,25 @@ def get_actions(tree, SHIFT = 0, REDUCE = 1, OPEN='(', CLOSE=')'):
 def get_tree(actions, sent = None, SHIFT = 0, REDUCE = 1):
   #input action and sent (lists), e.g. S S R S S R R, A B C D
   #output tree ((A B) (C D))
-  stack = []
-  pointer = 0
-  if sent is None:
-    sent = list(map(str, range((len(actions)+1) // 2)))
+    stack = []
+    pointer = 0
+    if sent is None:
+        sent = list(map(str, range((len(actions)+1) // 2)))
 #  assert(len(actions) == 2*len(sent) - 1)
-  for action in actions:
-    if action == SHIFT:
-      word = sent[pointer]
-      stack.append(word)
-      pointer += 1
-    elif action == REDUCE:
-      right = stack.pop()
-      left = stack.pop()
-      stack.append('(' + left + ' ' + right + ')')
-  assert(len(stack) == 1)
-  return stack[-1]
+    for action in actions:
+        if action == SHIFT:
+            #try:
+            word = sent[pointer]
+            #except:
+            #    print(sent)
+            stack.append(word)
+            pointer += 1
+        elif action == REDUCE:
+            right = stack.pop()
+            left = stack.pop()
+            stack.append('(' + left + ' ' + right + ')')
+    assert(len(stack) == 1)
+    return stack[-1]
       
 def get_depth(tree, SHIFT = 0, REDUCE = 1):
   stack = []

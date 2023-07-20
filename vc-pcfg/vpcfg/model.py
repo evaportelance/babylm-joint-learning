@@ -12,15 +12,18 @@ from .module import CompoundCFG
 class VGCPCFGs(object):
     NS_PARSER = 'parser'
     NS_OPTIMIZER = 'optimizer'
-
-    def __init__(self, opt, vocab, logger, pretrained_embed):
+    
+    def __init__(self, opt, logger, pretrained_embed, tokenizer):
+    #def __init__(self, opt, vocab, logger, pretrained_embed):
         # pretrained_embed is the shared embedding layer
         self.niter = 0
-        self.vocab = vocab
+        self.tokenizer = tokenizer
+        #self.vocab = vocab
         self.log_step = opt.log_step
         self.grad_clip = opt.grad_clip
         self.vse_lm_alpha = opt.vse_lm_alpha
-        # self.pretrained_embed = pretrained_embed
+        self.pretrained_embed = pretrained_embed
+        
         
         self.parser = CompoundCFG(
             pretrained_embed, # add pretrained embedding
@@ -69,7 +72,7 @@ class VGCPCFGs(object):
         dist = SentCFG(params, lengths=lengths)
 
         the_spans = dist.argmax[-1]
-        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
+        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=1) 
 
         ll = dist.partition
         nll = -ll
@@ -109,7 +112,7 @@ class VGCPCFGs(object):
         for b in range(bsize):
             max_len = lengths[b].item() 
             pred = [(a[0], a[1]) for a in argmax_spans[b] if a[0] != a[1]]
-            pred_set = set(pred[:-1])
+            pred_set = set(pred)
             gold = [(spans[b][i][0].item(), spans[b][i][1].item()) for i in range(max_len - 1)] 
             gold_set = set(gold[:-1])
             utils.update_stats(pred_set, [gold_set], self.all_stats) 
@@ -128,10 +131,12 @@ class VGCPCFGs(object):
                 self.n_sent / (time.time() - self.s_time)
             )
             pred_action = utils.get_actions(trees[0])
-            sent_s = [self.vocab.idx2word[wid] for wid in captions[0].cpu().tolist()]
+            sent_s = self.tokenizer.convert_ids_to_tokens(captions[0].cpu().tolist())
+            print(sent_s)
             pred_t = utils.get_tree(pred_action, sent_s)
             gold_t = utils.span_to_tree(spans[0].tolist(), lengths[0].item()) 
-            gold_action = utils.get_actions(gold_t) 
+            print(gold_t)
+            gold_action = utils.get_actions(gold_t)
             gold_t = utils.get_tree(gold_action, sent_s)
             info += "\nPred T: {}\nGold T: {}".format(pred_t, gold_t)
         return info

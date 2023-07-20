@@ -16,9 +16,10 @@ class VGCPCFGs(object):
     NS_IMG_ENCODER = 'img_enc' 
     NS_OPTIMIZER = 'optimizer'
 
-    def __init__(self, opt, vocab, logger):
+    def __init__(self, opt, logger, pretrained_emb):
         self.niter = 0
-        self.vocab = vocab
+        #self.vocab = vocab
+        self.pretrained_emb = pretrained_emb
         self.logger = logger
         self.log_step = opt.log_step
         self.grad_clip = opt.grad_clip
@@ -28,20 +29,18 @@ class VGCPCFGs(object):
 
         self.loss_criterion = ContrastiveLoss(margin=opt.margin)
 
-        self.parser = CompoundCFG(
+        self.parser = CompoundCFG(self.pretrained_emb,
             opt.vocab_size, opt.nt_states, opt.t_states, 
             h_dim = opt.h_dim,
             w_dim = opt.w_dim,
             z_dim = opt.z_dim,
             s_dim = opt.state_dim
         )
-
-        word_emb = torch.nn.Embedding(len(vocab), opt.word_dim)
-        torch.nn.init.xavier_uniform_(word_emb.weight)
+        torch.nn.init.xavier_uniform_(self.pretrained_emb.weight)
 
         self.all_params = [] 
         self.img_enc = ImageEncoder(opt)
-        self.txt_enc = TextEncoder(opt, word_emb)
+        self.txt_enc = TextEncoder(opt, self.pretrained_emb)
         self.all_params += list(self.txt_enc.parameters())
         self.all_params += list(self.parser.parameters())
         self.all_params += list(self.img_enc.parameters())
@@ -89,11 +88,15 @@ class VGCPCFGs(object):
     def forward_parser(self, captions, lengths):
         params, kl = self.parser(captions)
         dist = SentCFG(params, lengths=lengths)
-
+    
         the_spans = dist.argmax[-1]
         argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
 
-        ll, span_margs = dist.inside_im
+        #ll, span_margs = dist.inside_im
+        ll = dist.partition
+        print(ll.size)
+        span_margs = dist.marginals
+        print(span_margs)
         nll = -ll
         kl = torch.zeros_like(nll) if kl is None else kl
         return nll, kl, span_margs, argmax_spans, trees, lprobs

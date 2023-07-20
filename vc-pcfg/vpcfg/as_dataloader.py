@@ -3,6 +3,7 @@ import numpy as np
 import random
 import torch
 import torch.utils.data as data
+from operator import itemgetter
 
 TXT_IMG_DIVISOR=1
 TXT_MAX_LENGTH=45
@@ -22,67 +23,12 @@ def clean_number(w):
     new_w = re.sub('[0-9]{1,}([,.]?[0-9]*)*', 'N', w)
     return new_w
 
-class EvalDataLoader(data.Dataset):
-    def __init__(self, data_path, data_split, vocab, min_length=1, max_length=100):
-        self.vocab = vocab
-        self.captions = list()
-        self.labels = list()
-        self.spans = list()
-        self.tags = list()
-        with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f:
-            for line in f:
-                (caption, span, label, tag) = json.loads(line)
-                caption = [clean_number(w) for w in caption.strip().lower().split()]
-                if len(caption) < min_length or len(caption) > max_length:
-                    continue
-                self.captions.append(caption)
-                self.labels.append(label)
-                self.spans.append(span)
-                self.tags.append(tag)
-        self.length = len(self.captions)
-
-    def __getitem__(self, index):
-        caption = [self.vocab(token) for token in self.captions[index]]
-        caption = torch.tensor(caption)
-        label = self.labels[index]
-        span = self.spans[index]
-        tag = self.tags[index]
-        return caption, label, span, tag, index
-
-    def __len__(self):
-        return self.length
-
-def collate_fun_eval(data):
-    data.sort(key=lambda x: len(x[0]), reverse=True)
-    zipped_data = list(zip(*data))
-    captions, labels, spans, tags, ids = zipped_data
-    max_len = max([len(caption) for caption in captions])
-    targets = torch.zeros(len(captions), max_len).long()
-    lengths = [len(cap) for cap in captions]
-    for i, cap_len in enumerate(lengths):
-        targets[i, : cap_len] = captions[i][: cap_len]
-    return targets, lengths, spans, labels, tags, ids
-
-def eval_data_iter(data_path, data_split, vocab, batch_size=128,
-                   min_length=1, max_length=100):
-    data = EvalDataLoader(data_path, data_split, vocab,
-        min_length=min_length, max_length=max_length)
-    data_loader = torch.utils.data.DataLoader(
-                    dataset=data,
-                    batch_size=batch_size,
-                    shuffle=False,
-                    sampler=None,
-                    pin_memory=True,
-                    collate_fn=collate_fun_eval
-    )
-    return data_loader
-
 class SortedBlockSampler(data.Sampler):
     def __init__(self, data_source):
         self.data_source = data_source
         all_sample = len(self.data_source)
         batch_size = data_source.batch_size
-        nblock = all_sample // batch_size
+        nblock = all_sample // batch_size 
         residue = all_sample % batch_size
         nsample = all_sample - residue
         # https://numpy.org/doc/stable/reference/generated/numpy.array_split.html
@@ -98,8 +44,8 @@ class SortedBlockSampler(data.Sampler):
         self.data_source._shuffle()
         end = -1 if self.strip_last else len(self.groups)
         groups = self.groups[:end]
-        #random.shuffle(groups)
-        indice = torch.randperm(len(groups)).tolist()
+        #random.shuffle(groups) 
+        indice = torch.randperm(len(groups)).tolist() 
         groups = [groups[k] for k in indice]
         if self.strip_last:
             groups.append(self.groups[-1])
@@ -136,25 +82,42 @@ class SortedSequentialSampler(data.Sampler):
         return len(self.data_source)
 
 class DataLoader(data.Dataset):
-    def __init__(self, data_path, data_split, vocab,
+    def __init__(self, data_path, data_split, tokenizer,
                  load_img=True, img_dim=2048, batch_size=1, tiny=False):
         self.batch_size = batch_size
-        self.vocab = vocab
+        self.tokenizer = tokenizer
         self.ids_captions_spans = list()
         max_length = TXT_MAX_LENGTH
         indexes, removed, idx = list(), list(), -1
-        with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1, open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
-            for line, img_id in zip(f1.readlines(), f2.readlines()):
-                if tiny and idx > 32 :
-                    break
-                idx += 1
-                (caption, span) = json.loads(line)
-                caption = [clean_number(w) for w in caption.strip().lower().split()]
-                if TXT_MAX_LENGTH < 1000 and (len(caption) < 2 or len(caption) > max_length):
-                    removed.append((idx, len(caption)))
-                    continue
-                self.ids_captions_spans.append((int(img_id), caption, span))
-                indexes.append(idx)
+        try:
+            with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1, open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
+                for line, img_id in zip(f1.readlines(), f2.readlines()):
+                    if tiny and idx > 32 :
+                        break
+                    idx += 1
+                    (caption, span) = json.loads(line)
+                    caption = [clean_number(w) for w in caption.strip().lower().split()]
+                    caption_new, span_new, input_ids = self.ajust_tokens_spans(caption, span)
+                    if TXT_MAX_LENGTH < 1000 and (len(caption_new) < 2 or len(caption_new) > max_length):
+                        removed.append((idx, len(caption_new)))
+                        continue
+                    self.ids_captions_spans.append({'img_id':int(img_id), 'caption': caption_new, 'span':span_new, 'input_ids': input_ids})
+                    indexes.append(idx)
+        except:
+            with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1:
+                for line in f1.readlines():
+                    img_id = 0
+                    if tiny and idx > 32 :
+                        break
+                    idx += 1
+                    (caption, span) = json.loads(line)
+                    caption = [clean_number(w) for w in caption.strip().lower().split()]
+                    caption_new, span_new, input_ids = self.ajust_tokens_spans(caption, span)
+                    if TXT_MAX_LENGTH < 1000 and (len(caption_new) < 2 or len(caption_new) > max_length):
+                        removed.append((idx, len(caption_new)))
+                        continue
+                    self.ids_captions_spans.append({'img_id':int(img_id), 'caption': caption_new, 'span':span_new, 'input_ids': input_ids})
+                    indexes.append(idx)
         self.length = len(self.ids_captions_spans)
         self.im_div = TXT_IMG_DIVISOR
         print("removed idx: ")
@@ -171,15 +134,49 @@ class DataLoader(data.Dataset):
         self.ids_captions_spans = [self.ids_captions_spans[k] for k in indice]
 
     def __getitem__(self, index):
-        img_id, cap, span = self.ids_captions_spans[index]
+        img_id = self.ids_captions_spans[index]['img_id']
         image = torch.tensor(self.images[img_id])
-        caption = [self.vocab(token) for token in cap]
-        caption = torch.tensor(caption)
+        input_ids = self.ids_captions_spans[index]['input_ids']
+        input_ids = torch.tensor(input_ids)
+        span = self.ids_captions_spans[index]['span']
         span = torch.tensor(span)
-        return image, caption, index, img_id, span
+        return image, input_ids, index, img_id, span
 
     def __len__(self):
         return self.length
+    
+    def ajust_tokens_spans(self, caption, span):
+        tok_cap = self.tokenizer(caption, add_special_tokens= False, is_split_into_words=True, return_offsets_mapping = True)
+        sent = self.tokenizer.convert_ids_to_tokens(tok_cap['input_ids'])
+        if len(caption) != len(tok_cap['input_ids']):
+            #is_subword = np.array(tok_cap['offset_mapping'])[:,0] != 0
+            is_subword = np.array(["##" in token for token in sent])
+            subword_spans = []
+            end = -1
+            for i in reversed(range(len(is_subword))):
+                if end > 0:
+                    subword_spans.append([i, end])
+                if is_subword[i] and end == -1:
+                    end = i
+                if not is_subword[i]:
+                    end = -1
+            subword_spans = sorted(subword_spans, key=itemgetter(1))
+            mapping = [[x,x] for x in range(len(caption))]
+            inc = 0
+            diff = 0
+            for j in range(len(is_subword)):
+                if is_subword[j]:
+                    inc += 1
+                    diff += 1  
+                else:
+                    for m in range((j-diff),len(mapping)):
+                        mapping[m][1] += inc
+                    inc = 0          
+            for [b,e] in span:
+                subword_spans.append([mapping[b][1], mapping[e][1]])
+            span = subword_spans
+        caption = self.tokenizer.convert_ids_to_tokens(tok_cap['input_ids'])
+        return caption, span, tok_cap['input_ids']
 
 def collate_fun(data):
     # sort a data list by caption length
@@ -197,15 +194,15 @@ def collate_fun(data):
         indices[i, : cap_len - 1, :] = spans[i]
     return images, targets, lengths, ids, indices
 
-def get_data_loader(data_path, data_split, vocab,
+def get_data_loader(data_path, data_split, tokenizer,
                     batch_size=128,
                     shuffle=True,
                     nworker=2,
-                    loadimg=True,
+                    load_img=True,
                     img_dim=2048,
-                    sampler=None,
-                    tiny = False):
-    dset = DataLoader(data_path, data_split, vocab, loadimg, img_dim, batch_size, tiny)
+                    tiny = False,
+                    sampler=True):
+    dset = DataLoader(data_path, data_split, tokenizer, load_img, img_dim, batch_size, tiny)
     if sampler:
         model = SortedRandomSampler
         if not isinstance(sampler, bool) and issubclass(sampler, data.Sampler):
@@ -222,12 +219,10 @@ def get_data_loader(data_path, data_split, vocab,
     )
     return data_loader
 
-def get_data_iters(data_path, prefix, vocab, batch_size, nworker, shuffle=False, loadimg=True, sampler=True, tiny=False, split='train'):
-    if split == 'val':
-        sampler = None
-    elif split == 'test':
-        sampler = None
+def get_data_iters(data_path, prefix, tokenizer, batch_size, nworker, shuffle=False, sampler=True, load_img=True, tiny=False, split='train'):
+    if split == 'test':
         shuffle=False
-        loadimg=False
-    data_loader = get_data_loader(data_path, prefix, vocab, batch_size=batch_size, shuffle=shuffle, nworker=nworker, sampler=sampler, loadimg=loadimg, tiny=tiny)
+        sampler=None
+        load_img=False
+    data_loader = get_data_loader(data_path, prefix, tokenizer, batch_size=batch_size, shuffle=shuffle, sampler=sampler, nworker=nworker, load_img=load_img, tiny=tiny)
     return data_loader
