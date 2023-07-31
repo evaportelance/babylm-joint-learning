@@ -45,7 +45,19 @@ Clone the repository:
 ```bash
 git clone https://github.com/evaportelance/babylm-joint-learning.git
 cd babylm-joint-learning
-pip insatll requirements.txt
+pip install requirements.txt
+```
+If you use anaconda, you can clone our environment using the conda-env.txt file:
+```bash
+cd babylm-joint-learning
+conda create --name mybabylmenv --file ./conda-env.txt
+```
+
+The grammar induction model training requires a custom version of Torch-Struct:
+```bash
+git clone --branch infer_pos_tag https://github.com/zhaoyanpeng/pytorch-struct.git
+cd pytorch-struct
+pip install -e .
 ```
 
 ## Usage
@@ -60,19 +72,19 @@ To train grammar induction module:
 
 ```bash
 cd vc-pcfg
-python train.py
+python ./train.py --prefix "clean_parse_10M_data_small" --data_path PATH_TO_PREPROCESSED_DATA --tokenizer_path PATH_TO_TOKENIZER --save_model_path PATH_TO_LM_CONFIG --logger_name "./outputs" 
 ```
 
 To train language model:
 
 ```bash
 cd vc-pcfg
-python train_lm.py --prefix "x" --model_init "path to the grammar induction model" --train_data "train dataset" --val_data "validation dataset" --save_model_path "path to save the model" --logger_name "path to store the logger" 
+python train_lm.py  --model_init PATH_TO_GRAMMAR_INDUCTION_MODEL_CHECKPOINT --train_data PATH_TO_PREPROCESSED_DATA/all_train_10M_data_split.txt --val_data PATH_TO_PREPROCESSED_DATA/all_dev_data_split.txt --tokenizer_path PATH_TO_TOKENIZER --lm_config_path PATH_TO_LM_CONFIG --save_model_path "./results/" --logger_name "./results/log"
 ```
 
 ### Evaluation
 
-See more information in the babylm testing [benchmarks](https://github.com/babylm/evaluation-pipeline).
+See more information in the babylm testing [benchmarks](https://github.com/babylm/evaluation-pipeline). To save models in huggingface format use the save_models.py script.
 
 ## Model Architecture
 
