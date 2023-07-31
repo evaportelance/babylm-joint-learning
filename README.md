@@ -44,13 +44,12 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/evaportelance/babylm-joint-learning.git
-cd babylm-joint-learning
-pip install requirements.txt
 ```
 If you use anaconda, you can clone our environment using the conda-env.txt file:
 ```bash
 cd babylm-joint-learning
 conda create --name mybabylmenv --file ./conda-env.txt
+pip install requirements.txt
 ```
 
 The grammar induction model training requires a custom version of Torch-Struct:
